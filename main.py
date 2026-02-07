@@ -17,7 +17,6 @@ from scapy.fields import (
     LongField,
     ByteEnumField,
     PacketListField,
-    ConditionalField,
     PacketField,
     MultipleTypeField,
 )
@@ -210,6 +209,7 @@ class eCPRI(Packet):
 def main():
     bind_layers(Ether, eCPRI, type=0xAEFE)
     ps = rdpcap("ecpri.pcap")
+    ps.pdfdump("ecpri.pdf", layer_shift=1)
     for p in ps:
         p.show()
 
