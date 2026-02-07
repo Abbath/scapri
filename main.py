@@ -3,6 +3,7 @@ from scapy.all import (
     bind_layers,
     Ether,
     rdpcap,
+    Raw,
 )
 from scapy.fields import (
     BitField,
@@ -16,19 +17,11 @@ from scapy.fields import (
     LongField,
     ByteEnumField,
     PacketListField,
+    ConditionalField,
+    PacketField,
+    MultipleTypeField,
 )
 from decimal import Decimal, getcontext
-
-
-class eCPRI(Packet):
-    name = "eCPRI"
-    fields_desc = [
-        BitField("revision", 2, 4, 1),
-        BitField("reserved", 0, 3, 1),
-        BitField("C", 0, 1, 1),
-        ByteField("message_type", 0),
-        ShortField("payload_size", 0),
-    ]
 
 
 class IQData(Packet):
@@ -166,16 +159,56 @@ class EventIndication(Packet):
     ]
 
 
+class eCPRI(Packet):
+    name = "eCPRI"
+    fields_desc = [
+        BitField("revision", 2, 4, 1),
+        BitField("reserved", 0, 3, 1),
+        BitField("C", 0, 1, 1),
+        ByteField("message_type", 0),
+        ShortField("payload_size", 0),
+        MultipleTypeField(
+            [
+                (
+                    PacketField("message", None, IQData),
+                    lambda pkt: pkt.message_type == 0,
+                ),
+                (
+                    PacketField("message", None, BitSequence),
+                    lambda pkt: pkt.message_type == 1,
+                ),
+                (
+                    PacketField("message", None, RealTimeControlData),
+                    lambda pkt: pkt.message_type == 2,
+                ),
+                (
+                    PacketField("message", None, GenericDataTransfer),
+                    lambda pkt: pkt.message_type == 3,
+                ),
+                (
+                    PacketField("message", None, RemoteMemoryAccess),
+                    lambda pkt: pkt.message_type == 4,
+                ),
+                (
+                    PacketField("message", None, OneWayDelayMeasurement),
+                    lambda pkt: pkt.message_type == 5,
+                ),
+                (
+                    PacketField("message", None, RemoteReset),
+                    lambda pkt: pkt.message_type == 6,
+                ),
+                (
+                    PacketField("message", None, EventIndication),
+                    lambda pkt: pkt.message_type == 7,
+                ),
+            ],
+            PacketField("message", None, Raw),
+        ),
+    ]
+
+
 def main():
     bind_layers(Ether, eCPRI, type=0xAEFE)
-    bind_layers(eCPRI, IQData, message_type=0)
-    bind_layers(eCPRI, BitSequence, message_type=1)
-    bind_layers(eCPRI, RealTimeControlData, message_type=2)
-    bind_layers(eCPRI, GenericDataTransfer, message_type=3)
-    bind_layers(eCPRI, RemoteMemoryAccess, message_type=4)
-    bind_layers(eCPRI, OneWayDelayMeasurement, message_type=5)
-    bind_layers(eCPRI, RemoteReset, message_type=6)
-    bind_layers(eCPRI, EventIndication, message_type=7)
     ps = rdpcap("ecpri.pcap")
     for p in ps:
         p.show()
